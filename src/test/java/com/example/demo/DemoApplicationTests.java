@@ -1,10 +1,10 @@
 package com.example.demo;
 
-import com.example.demo.checkFb.FbUtil;
 import com.example.demo.checkFb.FileSearch;
 import com.example.demo.checkFb.GetPMassId;
 import com.example.demo.jpa.pMass.dao.PMassDao;
 import com.example.demo.jpa.pMass.entity.PmPatchReg;
+import com.example.demo.util.commonUtil.Application;
 import com.example.demo.util.commonUtil.ConvertMapToObject;
 import com.example.demo.util.fbUtil.DownloadFile;
 import lombok.extern.slf4j.Slf4j;
@@ -35,10 +35,12 @@ class DemoApplicationTests {
     private String url;
     @Value("${environment}")
     private String environment;
-    @Value("${version}")
-    private String version;
     @Value("${excelSuffix}")
     private String excelSuffix;
+    @Value("${pmass_log_dir}")
+    private String logPath;
+    @Value("${pmass_backFile_dir}")
+    private String historyPath;
     @Autowired
     private PMassDao pMassDao;
 
@@ -47,22 +49,28 @@ class DemoApplicationTests {
     @Rollback(false)
     public void downLoadFile() throws Exception {
         try {
+            String nowDate = new SimpleDateFormat("yyyyMMdd").format(new Date());
+            String backDir =historyPath + "\\" + new SimpleDateFormat("yyyyMMdd").format(new Date())
+                    + "\\" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+            this.url=url+"\\"+nowDate;
+            //判断文件是否存在并生成对应的文件夹
+            FileSearch.checkFileExists(logPath,url,historyPath);
             //获取补丁编号
             List<String> patchCodeList=getPatchCodeList();
             //查询数据
             List<PmPatchReg> entityList = ConvertMapToObject.convertMapToObject(pMassDao.queryAllByPatchCode(patchCodeList), PmPatchReg.class,true);
             //校验查询到的数据是否正确
-            FbUtil.checkPMassPatch(pMassDao.queryList(patchCodeList), patchCodeList);
+            FileSearch.checkPMassPatch(pMassDao.queryList(patchCodeList), patchCodeList);
             //校验是否能够发版
 //            assert entityList != null;
 //            FbUtil.checkState(entityList,environment);
             //生成附件
-            downloadFile.downLoanPMassFile(entityList, environment, version, excelSuffix);
+            downloadFile.downLoanPMassFile(entityList, environment, excelSuffix,url,backDir);
             if ("product".equals(environment)) {
                 //检查依赖
-                FileSearch.startCheckFile();
+                FileSearch.startCheck(url);
                 //发版准备结束以后把根目录下的excel删除，防止下次发版操作出错
-                File excelFile = new File(FbUtil.getExcelPath(url, version, excelSuffix));
+                File excelFile = new File(FileSearch.getExcelPath(url, excelSuffix));
                 boolean flag = excelFile.delete();
             }
             //默认暂时不更新，若要启用，请谨慎使用
@@ -80,7 +88,7 @@ class DemoApplicationTests {
      * product-已投产
      */
     public void updateStat(String flag, List<String> patchCode) throws Exception {
-        String stat = FbUtil.getMap(flag);
+        String stat = FileSearch.getMap(flag);
         //此处最好直接替换成自己pmass的id
         String username = System.getProperty("user.name");
         String date = new SimpleDateFormat("yyyyMMdd HH:mm:ss").format(new Date());
@@ -98,7 +106,7 @@ class DemoApplicationTests {
         if ("uat".equals(environment) || "sit".equals(environment)) {
             patchCodeList = Arrays.asList(downloadFile.loadFileAsString().split(";"));
         } else if ("product".equals(environment)) {
-            patchCodeList = GetPMassId.getPMassId(FbUtil.getExcelPath(url, version, excelSuffix));
+            patchCodeList = GetPMassId.getPMassId(FileSearch.getExcelPath(url, excelSuffix));
         }
         //trim()
         patchCodeList = patchCodeList.stream().map(String::trim).filter(StringUtils::isNotEmpty).collect(Collectors.toList());
