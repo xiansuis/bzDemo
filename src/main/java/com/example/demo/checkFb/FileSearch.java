@@ -82,14 +82,16 @@ public class FileSearch {
         Map<String, String> excelMap = getExcelMap(newUrl + "\\" + excelName);
         //排除key为null的情况
         excelMap.entrySet().removeIf(entry -> entry.getKey() == null);
-        for (int i = 0; i < files.length; i++) {
-            File file = new File(url + "\\" + files[i]);
+        for (String s : files) {
+            File file = new File(url + "\\" + s);
             if (!file.isFile()) {
-                log.info("=====================================开始检查文件" + files[i] + "============================");
-                checkFile(excelMap, files[i], tarPath);
-                for (int j = 0; j < checkFiles.length; j++) {
-                    if (files[i].equals(checkFiles[j]) && !"调度".equals(files[i])) {
-                        MakeTrash.findpath(url + "\\" + files[i] + "\\");
+                log.info("=====================================开始检查文件" + s + "============================");
+                checkFile(excelMap, s, tarPath);
+                for (String value : checkFiles) {
+                    if (s.equals(value) && !"调度".equals(s)) {
+                        log.info("开始生成脚本文件：" + s + "");
+                        MakeTrash.findpath(url + "\\" + s + "\\");
+                        log.info("脚本文件生成成功：" + s + "");
                     }
                 }
             }
